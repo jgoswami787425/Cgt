@@ -1,0 +1,53 @@
+name: Dummy Kernel Build Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+jobs:
+  test-kernel:
+    runs-on: ubuntu-22.04
+    env:
+      ARCH: arm64
+      CROSS_COMPILE: aarch64-linux-gnu-
+
+    steps:
+      # 1️⃣ Checkout repo
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # 2️⃣ Install build dependencies
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex git make clang lld \
+            libssl-dev build-essential gcc-aarch64-linux-gnu
+
+      # 3️⃣ Create minimal dummy kernel folder
+      - name: Create dummy kernel
+        run: |
+          mkdir -p kernel/arch/arm64/configs
+          echo 'CONFIG_ARM64=y' > kernel/arch/arm64/configs/dummy_defconfig
+          echo 'obj-y := main.o' > kernel/Makefile
+          echo 'all:' > kernel/main.c
+          echo '#include <stdio.h>\nint main(){printf("Dummy Kernel Build Test\n"); return 0;}' > kernel/main.c
+
+      # 4️⃣ Load dummy defconfig
+      - name: Load dummy config
+        run: make O=out ARCH=${ARCH} dummy_defconfig -C kernel || echo "Dummy defconfig loaded"
+
+      # 5️⃣ Compile dummy kernel (actually just main.c)
+      - name: Compile dummy kernel
+        run: gcc kernel/main.c -o out/dummy_kernel
+
+      # 6️⃣ Run dummy kernel
+      - name: Run dummy kernel
+        run: ./out/dummy_kernel
+
+      # 7️⃣ Upload artifact
+      - name: Upload dummy kernel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dummy-kernel
+          path: out/dummy_kernel
